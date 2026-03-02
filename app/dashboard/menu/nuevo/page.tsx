@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 export default function NuevoProductoPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [imagen, setImagen] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -17,9 +19,38 @@ export default function NuevoProductoPage() {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
+  function handleImagen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImagen(file)
+      setPreview(URL.createObjectURL(file))
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+
+    let image_url = null
+
+    if (imagen) {
+      const nombreArchivo = `${Date.now()}-${imagen.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('productos')
+        .upload(nombreArchivo, imagen)
+
+      if (uploadError) {
+        alert('Error subiendo imagen: ' + uploadError.message)
+        setLoading(false)
+        return
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('productos')
+        .getPublicUrl(nombreArchivo)
+
+      image_url = urlData.publicUrl
+    }
 
     const { error } = await supabase.from('products').insert({
       name: form.name,
@@ -27,6 +58,7 @@ export default function NuevoProductoPage() {
       price: Number(form.price),
       business_id: (await supabase.from('businesses').select('id').single()).data?.id,
       is_available: true,
+      image_url,
     })
 
     if (error) {
@@ -88,6 +120,25 @@ export default function NuevoProductoPage() {
               className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ej: 15000"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Foto del producto
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImagen}
+              className="w-full border rounded-lg px-3 py-2 text-sm text-gray-600"
+            />
+            {preview && (
+              <img
+                src={preview}
+                alt="Preview"
+                className="mt-2 w-full h-48 object-cover rounded-lg border"
+              />
+            )}
           </div>
 
           <button
