@@ -10,6 +10,12 @@ export default function DashboardLayout({
           <h1 className="text-xl font-bold text-gray-800">🍽️ El Buen Sabor</h1>
           <div className="flex gap-4">
             <a
+              href="/dashboard/pedidos"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              Pedidos
+            </a>
+            <a
               href="/dashboard/categorias"
               className="text-gray-600 hover:text-gray-900"
             >
