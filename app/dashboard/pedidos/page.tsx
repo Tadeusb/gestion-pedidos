@@ -23,8 +23,14 @@ export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [repartidores, setRepartidores] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
+  const audioRef =
+    typeof window !== "undefined"
+      ? new Audio(
+          "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+        )
+      : null;
 
-  async function cargarPedidos() {
+async function cargarPedidos() {
     const { data } = await supabase
       .from("orders")
       .select("*")
@@ -34,26 +40,27 @@ export default function PedidosPage() {
   }
 
   async function cargarRepartidores() {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('role', 'delivery')
-  console.log('Repartidores data:', data)
-  console.log('Repartidores error:', error)
-  setRepartidores(data || [])
-}
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("role", "delivery");
+    console.log("Repartidores data:", data);
+    console.log("Repartidores error:", error);
+    setRepartidores(data || []);
+  }
 
   useEffect(() => {
     cargarPedidos();
     cargarRepartidores();
 
     const channel = supabase
-      .channel("realtime-orders")
+      .channel('orders-' + Date.now())
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "orders" },
         (payload) => {
           setPedidos((prev) => [payload.new, ...prev]);
+          audioRef?.play().catch(() => {})
         },
       )
       .on(
@@ -114,7 +121,7 @@ export default function PedidosPage() {
           {pedidos.map((pedido) => {
             const estado = ESTADOS[pedido.status];
             const siguiente = SIGUIENTE_ESTADO[pedido.status];
-            const tieneRepartidor = false
+            const tieneRepartidor = false;
             return (
               <div key={pedido.id} className="bg-white rounded-xl shadow p-6">
                 <div className="flex items-start justify-between">
@@ -151,13 +158,13 @@ export default function PedidosPage() {
                       pedido.status !== "cancelled" && (
                         <div className="mt-3 flex items-center gap-2">
                           <select
-  className="border-2 border-blue-400 rounded-lg px-2 py-1 text-sm bg-white text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-  defaultValue=""
-  onChange={(e) => {
-    if (e.target.value)
-      asignarRepartidor(pedido.id, e.target.value);
-  }}
->
+                            className="border-2 border-blue-400 rounded-lg px-2 py-1 text-sm bg-white text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value)
+                                asignarRepartidor(pedido.id, e.target.value);
+                            }}
+                          >
                             <option value="">Asignar repartidor...</option>
                             {repartidores.map((r) => (
                               <option key={r.id} value={r.id}>
