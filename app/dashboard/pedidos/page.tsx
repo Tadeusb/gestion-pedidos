@@ -23,6 +23,7 @@ export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [repartidores, setRepartidores] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [filtroEstado, setFiltroEstado] = useState("todos");
   const audioRef =
     typeof window !== "undefined"
       ? new Audio(
@@ -30,7 +31,7 @@ export default function PedidosPage() {
         )
       : null;
 
-async function cargarPedidos() {
+  async function cargarPedidos() {
     const { data } = await supabase
       .from("orders")
       .select("*")
@@ -40,12 +41,10 @@ async function cargarPedidos() {
   }
 
   async function cargarRepartidores() {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("users")
       .select("*")
       .eq("role", "delivery");
-    console.log("Repartidores data:", data);
-    console.log("Repartidores error:", error);
     setRepartidores(data || []);
   }
 
@@ -54,13 +53,13 @@ async function cargarPedidos() {
     cargarRepartidores();
 
     const channel = supabase
-      .channel('orders-' + Date.now())
+      .channel("orders-" + Date.now())
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "orders" },
         (payload) => {
           setPedidos((prev) => [payload.new, ...prev]);
-          audioRef?.play().catch(() => {})
+          audioRef?.play().catch(() => {});
         },
       )
       .on(
@@ -102,9 +101,13 @@ async function cargarPedidos() {
     );
   }
 
+  const pedidosFiltrados = filtroEstado === "todos"
+    ? pedidos
+    : pedidos.filter((p) => p.status === filtroEstado);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-gray-800">Pedidos</h2>
         <span className="flex items-center gap-2 text-sm text-green-600">
           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -112,13 +115,37 @@ async function cargarPedidos() {
         </span>
       </div>
 
-      {pedidos.length === 0 ? (
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {[
+          "todos",
+          "received",
+          "preparing",
+          "ready",
+          "on_way",
+          "delivered",
+          "cancelled",
+        ].map((estado) => (
+          <button
+            key={estado}
+            onClick={() => setFiltroEstado(estado)}
+            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+              filtroEstado === estado
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+            }`}
+          >
+            {estado === "todos" ? "Todos" : ESTADOS[estado]?.label}
+          </button>
+        ))}
+      </div>
+
+      {pedidosFiltrados.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-12 text-center">
           <p className="text-gray-500">No hay pedidos todavía</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {pedidos.map((pedido) => {
+          {pedidosFiltrados.map((pedido) => {
             const estado = ESTADOS[pedido.status];
             const siguiente = SIGUIENTE_ESTADO[pedido.status];
             const tieneRepartidor = false;
@@ -152,7 +179,6 @@ async function cargarPedidos() {
                       {new Date(pedido.created_at).toLocaleTimeString()}
                     </p>
 
-                    {/* Asignar repartidor */}
                     {!tieneRepartidor &&
                       pedido.status !== "delivered" &&
                       pedido.status !== "cancelled" && (
